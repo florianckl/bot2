@@ -10,7 +10,7 @@ import config
 
 SOCKET = "wss://stream.binance.com:9443/ws/btceur@kline_1h"
 TRADE_SYMBOL = 'BTCEUR'
-TRADE_QUANTITY = 0.0036
+TRADE_QUANTITY = 0.0004
 
 closes = []
 maxprix = 0
@@ -68,7 +68,7 @@ def order_buy(quantity, symbol, order_type=ORDER_TYPE_MARKET):
     global ordre_achat
     try:
         print("sending order")
-        order = client.create_order(symbol=symbol, side=SIDE_BUY, type=order_type,
+        order = client.create_test_order(symbol=symbol, side=SIDE_BUY, type=order_type,
                                     newOrderRespType=ORDER_RESP_TYPE_FULL, quantity=quantity)
         ordre_achat.append(order)
         print(order)
@@ -83,7 +83,7 @@ def order_sell(quantity, symbol, order_type=ORDER_TYPE_MARKET):
     global ordre_achat
     try:
         print("sending order")
-        order = client.create_order(symbol=symbol, side=SIDE_SELL, type=order_type,
+        order = client.create_test_order(symbol=symbol, side=SIDE_SELL, type=order_type,
                                     newOrderRespType=ORDER_RESP_TYPE_FULL, quantity=quantity)
         print(order)
         with open('order.csv', 'a') as csvfile:
@@ -133,7 +133,7 @@ def on_open(ws):
     global closes
     print('opened connection')
     list = client.get_historical_klines(symbol=TRADE_SYMBOL, interval=Client.KLINE_INTERVAL_1HOUR,
-                                          start_str="30 hours ago UTC+1")
+                                        start_str="30 hours ago UTC+1")
     for elem in list:
         closes.append(float(elem[4]))
 
@@ -146,7 +146,7 @@ def on_close(ws):
     print('closed connection')
 
 
-def on_message(ws,message):
+def on_message(ws, message):
     global closes, nbAchat, nbVente, maxprix, minprix
 
     json_message = json.loads(message)
@@ -171,7 +171,7 @@ def on_message(ws,message):
             if maxprix < float(close):
                 maxprix = float(close)
 
-            if macd > 15 and nbAchat == 0:
+            if macd[-1] > 15 and nbAchat == 0:
                 order_succeeded = order_buy(TRADE_QUANTITY, TRADE_SYMBOL)
                 if order_succeeded:
                     nbAchat = nbAchat + 1
@@ -185,7 +185,7 @@ def on_message(ws,message):
             if minprix > float(close):
                 minprix = float(close)
 
-            if macd < -15 and nbVente == 0:
+            if macd[-1] < -15 and nbVente == 0:
                 order_succeeded = order_sell_short(TRADE_QUANTITY, TRADE_SYMBOL)
                 if order_succeeded:
                     nbVente = nbVente + 1
@@ -196,5 +196,5 @@ def on_message(ws,message):
                     nbVente = nbVente - 2
 
 
-ws=websocket.WebSocketApp(SOCKET, on_open=on_open, on_close=on_close, on_message=on_message)
+ws = websocket.WebSocketApp(SOCKET, on_open=on_open, on_close=on_close, on_message=on_message)
 ws.run_forever()
