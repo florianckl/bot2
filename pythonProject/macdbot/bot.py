@@ -129,7 +129,7 @@ def order_sell_short(quantity, symbol, order_type=ORDER_TYPE_MARKET):
     return True
 
 
-def on_open():
+def on_open(ws):
     global closes
     print('opened connection')
     list = client.get_historical_klines(symbol=TRADE_SYMBOL, interval=Client.KLINE_INTERVAL_1HOUR,
@@ -138,14 +138,15 @@ def on_open():
         closes.append(float(elem[4]))
 
 
-def on_close():
+def on_close(ws):
     print("Probleme de connexion")
     time.sleep(15)
-    websocket.WebSocketApp(SOCKET, on_open=on_open, on_close=on_close, on_message=on_message).run_forever()
+    ws.websocket.WebSocketApp(SOCKET, on_open=on_open, on_close=on_close, on_message=on_message)
+    ws.run_forever()
     print('closed connection')
 
 
-def on_message(message):
+def on_message(ws,message):
     global closes, nbAchat, nbVente, maxprix, minprix
 
     json_message = json.loads(message)
@@ -195,4 +196,5 @@ def on_message(message):
                     nbVente = nbVente - 2
 
 
-websocket.WebSocketApp(SOCKET, on_open=on_open, on_close=on_close, on_message=on_message).run_forever()
+ws=websocket.WebSocketApp(SOCKET, on_open=on_open, on_close=on_close, on_message=on_message)
+ws.run_forever()
