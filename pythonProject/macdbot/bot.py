@@ -69,7 +69,7 @@ def order_buy(quantity, symbol, order_type=ORDER_TYPE_MARKET):
     try:
         print("sending order")
         order = client.create_test_order(symbol=symbol, side=SIDE_BUY, type=order_type,
-                                    newOrderRespType=ORDER_RESP_TYPE_FULL, quantity=quantity)
+                                         newOrderRespType=ORDER_RESP_TYPE_FULL, quantity=quantity)
         ordre_achat.append(order)
         print(order)
 
@@ -84,7 +84,7 @@ def order_sell(quantity, symbol, order_type=ORDER_TYPE_MARKET):
     try:
         print("sending order")
         order = client.create_test_order(symbol=symbol, side=SIDE_SELL, type=order_type,
-                                    newOrderRespType=ORDER_RESP_TYPE_FULL, quantity=quantity)
+                                         newOrderRespType=ORDER_RESP_TYPE_FULL, quantity=quantity)
         print(order)
         with open('order.csv', 'a') as csvfile:
             spamwriter = csv.writer(csvfile, delimiter=' ', quotechar='|', quoting=csv.QUOTE_MINIMAL)
@@ -133,9 +133,13 @@ def on_open(ws):
     global closes
     print('opened connection')
     list = client.get_historical_klines(symbol=TRADE_SYMBOL, interval=Client.KLINE_INTERVAL_1HOUR,
-                                        start_str="30 hours ago UTC+1")
-    for elem in list:
-        closes.append(float(elem[4]))
+                                        start_str="29 Jun, 2021")
+
+    for i in range(len(list)-1):
+        closes.append(float(list[i][4]))
+    np_closes = numpy.array(closes)
+    macd, macdsignal, macdhist = talib.MACD(np_closes, fastperiod=12, slowperiod=26, signalperiod=9)
+    print(macdhist)
 
 
 def on_close(ws):
@@ -158,6 +162,7 @@ def on_message(ws, message):
         closes.append(float(close))
         np_closes = numpy.array(closes)
         macd, macdsignal, macdhist = talib.MACD(np_closes, fastperiod=12, slowperiod=26, signalperiod=9)
+        print(macdhist)
 
         if macdhist[-1] > 0 and macdhist[-2] < 0:
             nbAchat = 0
@@ -171,29 +176,33 @@ def on_message(ws, message):
             if maxprix < float(close):
                 maxprix = float(close)
 
-            if macd[-1] > 15 and nbAchat == 0:
+            if macdhist[-1] > 15 and nbAchat == 0:
+                print("achat")
                 order_succeeded = order_buy(TRADE_QUANTITY, TRADE_SYMBOL)
                 if order_succeeded:
                     nbAchat = nbAchat + 1
 
-            if nbAchat > 0 and vendre(float(close)) or macdhist[-2] > 0 and macdhist[-1] < 0:
-                order_succeeded = order_sell(TRADE_QUANTITY, TRADE_SYMBOL)
-                if order_succeeded:
-                    nbAchat = nbAchat - 2
+        if nbAchat > 0 and macdhist[-1] > 0 and vendre(float(close)) or macdhist[-2] > 0 and macdhist[-1] < 0:
+            print("vente")
+            order_succeeded = order_sell(TRADE_QUANTITY, TRADE_SYMBOL)
+            if order_succeeded:
+                nbAchat = nbAchat - 2
 
         if macdhist[-1] < 0:
             if minprix > float(close):
                 minprix = float(close)
 
-            if macd[-1] < -15 and nbVente == 0:
+            if macdhist[-1] < -15 and nbVente == 0:
+                print("vente_short")
                 order_succeeded = order_sell_short(TRADE_QUANTITY, TRADE_SYMBOL)
                 if order_succeeded:
                     nbVente = nbVente + 1
 
-            if nbVente > 0 and acheter(float(close)) or macdhist[-2] < 0 and macdhist[-1] > 0:
-                order_succeeded = order_buy_short(TRADE_QUANTITY, TRADE_SYMBOL)
-                if order_succeeded:
-                    nbVente = nbVente - 2
+        if nbVente > 0 and macdhist[-1] < 0 and acheter(float(close)) or macdhist[-2] < 0 and macdhist[-1] > 0:
+            print("achat_short")
+            order_succeeded = order_buy_short(TRADE_QUANTITY, TRADE_SYMBOL)
+            if order_succeeded:
+                nbVente = nbVente - 2
 
 
 ws = websocket.WebSocketApp(SOCKET, on_open=on_open, on_close=on_close, on_message=on_message)
